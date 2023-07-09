@@ -4,8 +4,11 @@
 #include <iostream>
 #include <ctime>
 
+#include <fstream>
+
 #define PI 3.14159265358979323
 #define PRINT_TABLE 0
+#define WITH_MATRIX 0
 
 using namespace std;
 
@@ -23,7 +26,7 @@ double a, b, c, d;
 int N, K;
 double delta, Delta;
 
-double **matrix;
+pointInstance **matrix;
 /*Нужно динамически выделить память*/
 
 double f(double u, double v);
@@ -33,35 +36,56 @@ void find_maximin(void);
 
 void countMatrix(void);
 
+ofstream wrMinimax;
+ofstream wrMaximin;
+
 int main()
 {
 	startTime = clock();
 	cout << fixed;
 	cout.precision(3);
 
-	a = sqrt(PI / (double)3);
-	b = sqrt((double)2 * PI / (double)3);
-	N = 1000;
+	a = sqrt((double)1 * (PI / (double)6));
+	b = sqrt((double)5 * (PI / (double)6));
+	N = 100;
 	delta = (b - a) / double(N);
-
 	cout << "a = " << a << " b = " << b << " delta = " << delta << endl;
 	
-	c = sqrt(PI / (double)3);
-	d = sqrt((double)2*PI/(double)3);
-	K = 1000;
+	c = a;
+	d = b;
+	K = 100;
 	Delta = (d - c) / double(K);
-
 	cout << "c = " << c << " d = " << d << " Delta = " << Delta << endl << endl;
 
-	find_minimax();
-	find_maximin();
+#if WITH_MATRIX
+	matrix = new pointInstance*[N + 1];
+	for (int i = 0; i <= N; i++)
+		matrix[i] = new pointInstance[K + 1];
 
-	cout << endl;
-	cout << "minimax: " << minimax.value << ", u = " << minimax.u << ", v = " << minimax.v << endl;
-	cout << "maximin: " << maximin.value << ", u = " << maximin.u << ", v = " << maximin.v << endl;
-	cout << "difference: " << minimax.value - maximin.value << endl << endl;
+	countMatrix();
+#endif
 
-	cout << clock() - startTime << " ms" << endl;
+	wrMinimax.open("minimax.txt");
+	wrMaximin.open("maximin.txt");
+	if ((wrMinimax.is_open()) && (wrMaximin.is_open()))
+	{
+		do
+		{
+			find_minimax();
+			find_maximin();
+			a -= delta;
+		} while (a>-1*sqrt((double)5 * (PI / (double)6)));
+
+		wrMinimax.close();
+		wrMaximin.close();
+
+		cout << endl;
+		cout << "minimax: " << minimax.value << ", u = " << minimax.u << ", v = " << minimax.v << endl;
+		cout << "maximin: " << maximin.value << ", u = " << maximin.u << ", v = " << maximin.v << endl;
+		cout << "difference: " << minimax.value - maximin.value << endl << endl;
+
+		cout << clock() - startTime << " ms" << endl;
+	}
 	system("pause");
 }
 
@@ -72,6 +96,41 @@ double f(double u, double v)
 
 void find_minimax(void)
 {
+#if WITH_MATRIX
+	pointInstance localMax;
+	double localResult = 0;
+	int i = 0, j = 0;
+	int allMaxCounter = 0;	
+
+	for (i = 0; i < N; i++)
+	{
+		j = 0;
+		localMax.value = matrix[i][j].value;
+		localMax.u = matrix[i][j].u;
+		localMax.v = matrix[i][j].v;
+		for (j = 0; j < K; j++)
+		{
+			if (matrix[i][j].value > localMax.value)
+			{
+				localMax.value = matrix[i][j].value;
+				localMax.u = matrix[i][j].u;
+				localMax.v = matrix[i][j].v;
+			}
+		}
+
+		if (((allMaxCounter > 0) && (localMax.value < minimax.value))
+		 || (allMaxCounter == 0))
+		{
+			minimax.value = localMax.value;
+			minimax.u = localMax.u;
+			minimax.v = localMax.v;
+		}
+
+		allMaxCounter++;
+	}
+
+	wrMinimax << a << " " << minimax.value << endl;
+#else
 	pointInstance localMax;
 	double localResult = 0;
 	double ui = a, vj = c;
@@ -114,10 +173,48 @@ void find_minimax(void)
 
 		allMaxCounter++;
 	}
+
+	wrMinimax << a << " " << minimax.value << endl;
+#endif
 }
 
 void find_maximin(void)
 {
+#if WITH_MATRIX
+	pointInstance localMin;
+	double localResult = 0;
+	int i = 0, j = 0;
+	int allMinCounter = 0;
+
+	for (i = 0; i <= N; i++)
+	{
+		j = 0;
+		localMin.value = matrix[i][j].value;
+		localMin.u = matrix[i][j].u;
+		localMin.v = matrix[i][j].v;
+		for (j = 0; j <= K; j++)
+		{
+			if (matrix[i][j].value < localMin.value)
+			{
+				localMin.value = matrix[i][j].value;
+				localMin.u = matrix[i][j].u;
+				localMin.v = matrix[i][j].v;
+			}
+		}
+
+		if (((allMinCounter > 0) && (localMin.value > maximin.value))
+			|| (allMinCounter == 0))
+		{
+			maximin.value = localMin.value;
+			maximin.u = localMin.u;
+			maximin.v = localMin.v;
+		}
+
+		allMinCounter++;
+	}
+
+	wrMaximin << a << " " << maximin.value << endl;
+#else
 	pointInstance localMin;
 	double localResult = 0;
 	double ui = a, vj = c;
@@ -151,6 +248,9 @@ void find_maximin(void)
 
 		allMinCounter++;
 	}
+
+	wrMaximin << a << " " << maximin.value << endl;
+#endif
 }
 
 void countMatrix(void)
@@ -158,16 +258,19 @@ void countMatrix(void)
 	double ui = a, vj = c;
 	int i = 0, j = 0;
 
-	for (ui = a; ui <= b; ui += delta)
+	for (ui = a; ui <= b+delta/2; ui += delta)
 	{
 		j = 0;
-		for (vj = c; vj <= d; vj += Delta)
+		for (vj = c; vj <= d+Delta/2; vj += Delta)
 		{
-			matrix[i][j] = f(ui, vj);
-			cout << matrix[i][j] << " ";
+			matrix[i][j].value = f(ui, vj);
+			matrix[i][j].u = ui;
+			matrix[i][j].v = vj;
+			//cout << matrix[i][j].value << " ";
 			j++;
 		}
-		cout << endl;
+		i++;
+		//cout << endl;
 	}
 }
 
