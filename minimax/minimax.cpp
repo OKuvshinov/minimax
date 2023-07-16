@@ -26,15 +26,11 @@ double a, b, c, d;
 int N, K;
 double delta, Delta;
 
-pointInstance **matrix;
-/*Нужно динамически выделить память*/
-
 double f(double u, double v);
+bool check_specific_point(double u, double v);
 
 void find_minimax(void);
 void find_maximin(void);
-
-void countMatrix(void);
 
 ofstream wrMinimax;
 ofstream wrMaximin;
@@ -45,25 +41,17 @@ int main()
 	cout << fixed;
 	cout.precision(3);
 
-	a = sqrt((double)1 * (PI / (double)6));
-	b = sqrt((double)5 * (PI / (double)6));
+	a = 1.0;
+	b = 11.0;
 	N = 100;
 	delta = (b - a) / double(N);
 	cout << "a = " << a << " b = " << b << " delta = " << delta << endl;
 	
-	c = a;
-	d = b;
+	c = 1.0;
+	d = 11.0;
 	K = 100;
 	Delta = (d - c) / double(K);
 	cout << "c = " << c << " d = " << d << " Delta = " << Delta << endl << endl;
-
-#if WITH_MATRIX
-	matrix = new pointInstance*[N + 1];
-	for (int i = 0; i <= N; i++)
-		matrix[i] = new pointInstance[K + 1];
-
-	countMatrix();
-#endif
 
 	wrMinimax.open("minimax.txt");
 	wrMaximin.open("maximin.txt");
@@ -74,7 +62,7 @@ int main()
 			find_minimax();
 			find_maximin();
 			a -= delta;
-		} while (a>-1*sqrt((double)5 * (PI / (double)6)));
+		} while (a >= -11.0);
 
 		wrMinimax.close();
 		wrMaximin.close();
@@ -89,63 +77,62 @@ int main()
 	system("pause");
 }
 
-double f(double u, double v)
+bool check_specific_point(double u, double v)
 {
-	return sin(u*v);
+	if (round(100.0*(u + v)) == 0)
+		return false;
+	else
+		return true;
+}
+
+double f(double u, double v)
+{	
+	double initresult = (u - v) / (u + v);
+	double result = initresult;
+	int power = 4;
+
+	for (int i = 0; i < power - 1; i++)
+	{
+		result *= initresult;
+	}
+
+	return result;
 }
 
 void find_minimax(void)
 {
-#if WITH_MATRIX
 	pointInstance localMax;
-	double localResult = 0;
-	int i = 0, j = 0;
-	int allMaxCounter = 0;	
-
-	for (i = 0; i < N; i++)
-	{
-		j = 0;
-		localMax.value = matrix[i][j].value;
-		localMax.u = matrix[i][j].u;
-		localMax.v = matrix[i][j].v;
-		for (j = 0; j < K; j++)
-		{
-			if (matrix[i][j].value > localMax.value)
-			{
-				localMax.value = matrix[i][j].value;
-				localMax.u = matrix[i][j].u;
-				localMax.v = matrix[i][j].v;
-			}
-		}
-
-		if (((allMaxCounter > 0) && (localMax.value < minimax.value))
-		 || (allMaxCounter == 0))
-		{
-			minimax.value = localMax.value;
-			minimax.u = localMax.u;
-			minimax.v = localMax.v;
-		}
-
-		allMaxCounter++;
-	}
-
-	wrMinimax << a << " " << minimax.value << endl;
-#else
-	pointInstance localMax;
-	double localResult = 0;
+	double localResult = 0.0;
 	double ui = a, vj = c;
 	int allMaxCounter = 0;
+	bool isStarted = false;
+	double initvj = 0.0;
 
 	for (ui = a; ui <= b; ui += delta)
 	{
+		isStarted = false;
 		vj = c;
-		localMax.value = f(ui, vj);
-		localMax.u = ui;
-		localMax.v = vj;
-
-		for (vj = c; vj <= d; vj += Delta)
+		while (!isStarted)
 		{
-			localResult = f(ui, vj);
+			if (check_specific_point(ui, vj))
+			{
+				localMax.value = f(ui, vj);
+				localMax.u = ui;
+				localMax.v = vj;
+				isStarted = true;
+
+				initvj = vj;
+			}
+			else
+				vj += Delta;
+		}
+
+		for (vj = initvj; vj <= d; vj += Delta)
+		{
+			if (check_specific_point(ui, vj))
+				localResult = f(ui, vj);
+			else
+				continue;
 			
 			#if PRINT_TABLE
 			cout << localResult << " ";
@@ -175,61 +162,43 @@ void find_minimax(void)
 	}
 
 	wrMinimax << a << " " << minimax.value << endl;
-#endif
 }
 
 void find_maximin(void)
 {
-#if WITH_MATRIX
-	pointInstance localMin;
-	double localResult = 0;
-	int i = 0, j = 0;
-	int allMinCounter = 0;
-
-	for (i = 0; i <= N; i++)
-	{
-		j = 0;
-		localMin.value = matrix[i][j].value;
-		localMin.u = matrix[i][j].u;
-		localMin.v = matrix[i][j].v;
-		for (j = 0; j <= K; j++)
-		{
-			if (matrix[i][j].value < localMin.value)
-			{
-				localMin.value = matrix[i][j].value;
-				localMin.u = matrix[i][j].u;
-				localMin.v = matrix[i][j].v;
-			}
-		}
-
-		if (((allMinCounter > 0) && (localMin.value > maximin.value))
-			|| (allMinCounter == 0))
-		{
-			maximin.value = localMin.value;
-			maximin.u = localMin.u;
-			maximin.v = localMin.v;
-		}
-
-		allMinCounter++;
-	}
-
-	wrMaximin << a << " " << maximin.value << endl;
-#else
 	pointInstance localMin;
 	double localResult = 0;
 	double ui = a, vj = c;
 	int allMinCounter = 0;
+	bool isStarted = false;
+	double initui = 0.0;
 
 	for (vj = c; vj <= d; vj += Delta)
 	{
+		isStarted = false;
 		ui = a;
-		localMin.value = f(ui, vj);
-		localMin.u = ui;
-		localMin.v = vj;
-
-		for (ui = a; ui <= b; ui += delta)
+		while (!isStarted)
 		{
-			localResult = f(ui, vj);
+			if (check_specific_point(ui, vj))
+			{
+				localMin.value = f(ui, vj);
+				localMin.u = ui;
+				localMin.v = vj;
+				isStarted = true;
+
+				initui = ui;
+			}
+			else
+				ui += delta;
+		}
+
+		for (ui = initui; ui <= b; ui += delta)
+		{
+			if (check_specific_point(ui, vj))
+				localResult = f(ui, vj);
+			else
+				continue;
+
 			if (localResult < localMin.value)
 			{
 				localMin.value = localResult;
@@ -250,28 +219,6 @@ void find_maximin(void)
 	}
 
 	wrMaximin << a << " " << maximin.value << endl;
-#endif
-}
-
-void countMatrix(void)
-{
-	double ui = a, vj = c;
-	int i = 0, j = 0;
-
-	for (ui = a; ui <= b+delta/2; ui += delta)
-	{
-		j = 0;
-		for (vj = c; vj <= d+Delta/2; vj += Delta)
-		{
-			matrix[i][j].value = f(ui, vj);
-			matrix[i][j].u = ui;
-			matrix[i][j].v = vj;
-			//cout << matrix[i][j].value << " ";
-			j++;
-		}
-		i++;
-		//cout << endl;
-	}
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
